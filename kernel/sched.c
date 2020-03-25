@@ -148,7 +148,7 @@ int sys_pause(void)
 	return 0;
 }
 
-void sleep_on(struct task_struct **p)
+void sleep_on(struct task_struct **p)//进程休眠
 {
 	struct task_struct *tmp;
 

@@ -69,7 +69,7 @@ void sync_inodes(void)
 	}
 }
 
-static int _bmap(struct m_inode * inode,int block,int create)
+static int _bmap(struct m_inode * inode,int block,int create)//将文件块号转化成设备块号
 {
 	struct buffer_head * bh;
 	int i;
@@ -80,7 +80,7 @@ static int _bmap(struct m_inode * inode,int block,int create)
 		panic("_bmap: block>big");
 	if (block<7) {
 		if (create && !inode->i_zone[block])
-			if (inode->i_zone[block]=new_block(inode->i_dev)) {
+			if (inode->i_zone[block]=new_block(inode->i_dev)) {//创建一个新的设备上的块存放在i_zone，
 				inode->i_ctime=CURRENT_TIME;
 				inode->i_dirt=1;
 			}
@@ -137,17 +137,17 @@ static int _bmap(struct m_inode * inode,int block,int create)
 	return i;
 }
 
-int bmap(struct m_inode * inode,int block)
+int bmap(struct m_inode * inode,int block)//这个代码只用于删除目录，读取目录，读取文件，返回硬件块
 {
-	return _bmap(inode,block,0);
+	return _bmap(inode,block,0);//有块读块，没块不变
 }
 
-int create_block(struct m_inode * inode, int block)
+int create_block(struct m_inode * inode, int block)//这个代码只用于添加文件目录，写文件数据，返回硬件块
 {
-	return _bmap(inode,block,1);
+	return _bmap(inode,block,1);//一般都是新建块
 }
 		
-void iput(struct m_inode * inode)
+void iput(struct m_inode * inode)//释放一个内存中inode（回写进设备），记住不是删除inode
 {
 	if (!inode)
 		return;
@@ -191,7 +191,7 @@ repeat:
 	return;
 }
 
-struct m_inode * get_empty_inode(void)
+struct m_inode * get_empty_inode(void)//从inode table中拿一个空的inode结构体
 {
 	struct m_inode * inode;
 	static struct m_inode * last_inode = inode_table;
@@ -225,13 +225,13 @@ struct m_inode * get_empty_inode(void)
 	return inode;
 }
 
-struct m_inode * get_pipe_inode(void)
+struct m_inode * get_pipe_inode(void)//返回一个空的pipe inode用于pipe
 {
 	struct m_inode * inode;
 
 	if (!(inode = get_empty_inode()))
 		return NULL;
-	if (!(inode->i_size=get_free_page())) {
+	if (!(inode->i_size=get_free_page())) {//获得一个页作为管道缓冲区，缓冲区指针保存到i_size，
 		inode->i_count = 0;
 		return NULL;
 	}
@@ -241,13 +241,14 @@ struct m_inode * get_pipe_inode(void)
 	return inode;
 }
 
-struct m_inode * iget(int dev,int nr)
+//从设备中获得一个inode对象到内存中inode对象
+struct m_inode * iget(int dev,int nr)//从块设备读取inode，记住只是读取，并不是新建
 {
 	struct m_inode * inode, * empty;
 
 	if (!dev)
 		panic("iget with dev==0");
-	empty = get_empty_inode();
+	empty = get_empty_inode();//获得空的inode
 	inode = inode_table;
 	while (inode < NR_INODE+inode_table) {
 		if (inode->i_dev != dev || inode->i_num != nr) {
@@ -291,27 +292,29 @@ struct m_inode * iget(int dev,int nr)
 	return inode;
 }
 
-static void read_inode(struct m_inode * inode)
+//以下方法只是用于同步已经在内存中的inode的信息和设备中的inode信息。
+
+static void read_inode(struct m_inode * inode)//同步inode，从硬盘中读取inode信息
 {
 	struct super_block * sb;
 	struct buffer_head * bh;
 	int block;
 
-	lock_inode(inode);
+	lock_inode(inode);//申请锁
 	if (!(sb=get_super(inode->i_dev)))
 		panic("trying to read inode without dev");
 	block = 2 + sb->s_imap_blocks + sb->s_zmap_blocks +
-		(inode->i_num-1)/INODES_PER_BLOCK;
-	if (!(bh=bread(inode->i_dev,block)))
+		(inode->i_num-1)/INODES_PER_BLOCK;//找到对应的inode的数据结构在super中的block数字
+	if (!(bh=bread(inode->i_dev,block)))//讲对应block内容读到buffer_head中
 		panic("unable to read i-node block");
 	*(struct d_inode *)inode =
 		((struct d_inode *)bh->b_data)
-			[(inode->i_num-1)%INODES_PER_BLOCK];
-	brelse(bh);
-	unlock_inode(inode);
+			[(inode->i_num-1)%INODES_PER_BLOCK];//找到对应的inode的数据
+	brelse(bh);//释放buffer_head
+	unlock_inode(inode);//解锁
 }
 
-static void write_inode(struct m_inode * inode)
+static void write_inode(struct m_inode * inode)//同步inode，将inode的信息写到硬盘，但是注意，这个写的操作并没有正式写到硬盘，只是临时写到啦bf
 {
 	struct super_block * sb;
 	struct buffer_head * bh;

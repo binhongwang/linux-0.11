@@ -33,13 +33,15 @@ static int dupfd(unsigned int fd, unsigned int arg)
 	return arg;
 }
 
+//dup2可以用参数newfd指定新文件描述符的数值。若newfd已经被程序使用，系统就会将其关闭以释放该文件描述符；
+//若newfd与oldfd相等，dup2将返回newfd，而不关闭他。dup2调用成功返回新的文件描述符，出错则返回－1。
 int sys_dup2(unsigned int oldfd, unsigned int newfd)
 {
 	sys_close(newfd);
 	return dupfd(oldfd,newfd);
 }
 
-int sys_dup(unsigned int fildes)
+int sys_dup(unsigned int fildes)//返回最小的未被使用的fd，但是他们指向的是同一个file，也就意味着共享偏移指针
 {
 	return dupfd(fildes,0);
 }

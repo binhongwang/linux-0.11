@@ -12,7 +12,7 @@
 #include <linux/kernel.h>
 #include <asm/segment.h>
 
-static void cp_stat(struct m_inode * inode, struct stat * statbuf)
+static void cp_stat(struct m_inode * inode, struct stat * statbuf)//拷贝文件信息到一个statbuf
 {
 	struct stat tmp;
 	int i;
@@ -33,24 +33,24 @@ static void cp_stat(struct m_inode * inode, struct stat * statbuf)
 		put_fs_byte(((char *) &tmp)[i],&((char *) statbuf)[i]);
 }
 
-int sys_stat(char * filename, struct stat * statbuf)
+int sys_stat(char * filename, struct stat * statbuf)//根据name获得文件属性
 {
 	struct m_inode * inode;
 
-	if (!(inode=namei(filename)))
+	if (!(inode=namei(filename)))//根据name获得一个inode
 		return -ENOENT;
-	cp_stat(inode,statbuf);
-	iput(inode);
+	cp_stat(inode,statbuf);//把文件的信息复制到statbuf
+	iput(inode);//释放inode
 	return 0;
 }
 
-int sys_fstat(unsigned int fd, struct stat * statbuf)
+int sys_fstat(unsigned int fd, struct stat * statbuf)//根据fd获得文件属性
 {
 	struct file * f;
 	struct m_inode * inode;
 
-	if (fd >= NR_OPEN || !(f=current->filp[fd]) || !(inode=f->f_inode))
+	if (fd >= NR_OPEN || !(f=current->filp[fd]) || !(inode=f->f_inode))//根据fd到房钱的file，然后拿到当前的inode
 		return -EBADF;
-	cp_stat(inode,statbuf);
+	cp_stat(inode,statbuf);//把文件的信息复制到statbuf，因为文件是打开的，所以inode不需要删除
 	return 0;
 }

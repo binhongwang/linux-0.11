@@ -11,7 +11,7 @@
 #include <asm/segment.h>
 #include <asm/system.h>
 
-int block_write(int dev, long * pos, char * buf, int count)
+int block_write(int dev, long * pos, char * buf, int count)//块设备的裸写
 {
 	int block = *pos >> BLOCK_SIZE_BITS;
 	int offset = *pos & (BLOCK_SIZE-1);
@@ -44,7 +44,7 @@ int block_write(int dev, long * pos, char * buf, int count)
 	return written;
 }
 
-int block_read(int dev, unsigned long * pos, char * buf, int count)
+int block_read(int dev, unsigned long * pos, char * buf, int count)//块设备的裸读
 {
 	int block = *pos >> BLOCK_SIZE_BITS;
 	int offset = *pos & (BLOCK_SIZE-1);

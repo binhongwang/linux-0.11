@@ -33,30 +33,30 @@ static struct buffer_head * free_list;
 static struct task_struct * buffer_wait = NULL;
 int NR_BUFFERS = 0;
 
-static inline void wait_on_buffer(struct buffer_head * bh)
+static inline void wait_on_buffer(struct buffer_head * bh)//等待指定bh解锁
 {
-	cli();
+	cli();//关中断
 	while (bh->b_lock)
-		sleep_on(&bh->b_wait);
-	sti();
+		sleep_on(&bh->b_wait);//如果已被上锁，进程休眠
+	sti();//开中断
 }
 
-int sys_sync(void)
+int sys_sync(void)//系统调用，同步设备和内存高速缓存中数据
 {
 	int i;
 	struct buffer_head * bh;
 
-	sync_inodes();		/* write out inodes into buffers */
+	sync_inodes();		/* write out inodes into buffers *///将修改的inode数据写入到buffer_head.
 	bh = start_buffer;
 	for (i=0 ; i<NR_BUFFERS ; i++,bh++) {
 		wait_on_buffer(bh);
 		if (bh->b_dirt)
-			ll_rw_block(WRITE,bh);
+			ll_rw_block(WRITE,bh);//真的写到块设备中
 	}
 	return 0;
 }
 
-int sync_dev(int dev)
+int sync_dev(int dev)//对指定设备，进行内存高速缓存中数据和设备同步
 {
 	int i;
 	struct buffer_head * bh;
@@ -67,7 +67,7 @@ int sync_dev(int dev)
 			continue;
 		wait_on_buffer(bh);
 		if (bh->b_dev == dev && bh->b_dirt)
-			ll_rw_block(WRITE,bh);
+			ll_rw_block(WRITE,bh);//真的写到块设备中
 	}
 	sync_inodes();
 	bh = start_buffer;
@@ -76,16 +76,16 @@ int sync_dev(int dev)
 			continue;
 		wait_on_buffer(bh);
 		if (bh->b_dev == dev && bh->b_dirt)
-			ll_rw_block(WRITE,bh);
+			ll_rw_block(WRITE,bh);//真的写到块设备中
 	}
 	return 0;
 }
 
-void inline invalidate_buffers(int dev)
+void inline invalidate_buffers(int dev)//让指定设备在buffer_head中数据都无效
 {
 	int i;
 	struct buffer_head * bh;
-
+    //逻辑很简单，遍历buffer_head，然后将对应dev的buffer_head设置b_dirt，b_uptodate为0
 	bh = start_buffer;
 	for (i=0 ; i<NR_BUFFERS ; i++,bh++) {
 		if (bh->b_dev != dev)
@@ -110,13 +110,13 @@ void inline invalidate_buffers(int dev)
  * and that mount/open needn't know that floppies/whatever are
  * special.
  */
-void check_disk_change(int dev)
+void check_disk_change(int dev)//检查磁盘是否已经更换，如果更换就让对应告诉缓冲区无效
 {
 	int i;
 
-	if (MAJOR(dev) != 2)
+	if (MAJOR(dev) != 2)//判断是不是软盘
 		return;
-	if (!floppy_change(dev & 0x03))
+	if (!floppy_change(dev & 0x03))//判断对应软盘是否已经更改，如果没有则退出
 		return;
 	for (i=0 ; i<NR_SUPER ; i++)
 		if (super_block[i].s_dev == dev)
@@ -128,7 +128,7 @@ void check_disk_change(int dev)
 #define _hashfn(dev,block) (((unsigned)(dev^block))%NR_HASH)
 #define hash(dev,block) hash_table[_hashfn(dev,block)]
 
-static inline void remove_from_queues(struct buffer_head * bh)
+static inline void remove_from_queues(struct buffer_head * bh)//从hash队列和空闲队列中移走buffer_head
 {
 /* remove from hash-queue */
 	if (bh->b_next)
@@ -146,7 +146,7 @@ static inline void remove_from_queues(struct buffer_head * bh)
 		free_list = bh->b_next_free;
 }
 
-static inline void insert_into_queues(struct buffer_head * bh)
+static inline void insert_into_queues(struct buffer_head * bh)//将buffer_head插入hash队列和空闲链表
 {
 /* put at end of free list */
 	bh->b_next_free = free_list;
@@ -163,7 +163,7 @@ static inline void insert_into_queues(struct buffer_head * bh)
 	bh->b_next->b_prev = bh;
 }
 
-static struct buffer_head * find_buffer(int dev, int block)
+static struct buffer_head * find_buffer(int dev, int block)//根据设备和块号找到对应的buffer_head
 {		
 	struct buffer_head * tmp;
 
@@ -203,7 +203,7 @@ struct buffer_head * get_hash_table(int dev, int block)
  * The algoritm is changed: hopefully better, and an elusive bug removed.
  */
 #define BADNESS(bh) (((bh)->b_dirt<<1)+(bh)->b_lock)
-struct buffer_head * getblk(int dev,int block)
+struct buffer_head * getblk(int dev,int block)//找到对应的dev block的buffer_head，如果没有就新建一个。
 {
 	struct buffer_head * tmp, * bh;
 
@@ -250,7 +250,7 @@ repeat:
 	return bh;
 }
 
-void brelse(struct buffer_head * buf)
+void brelse(struct buffer_head * buf)//释放buffer_head的锁
 {
 	if (!buf)
 		return;
@@ -264,19 +264,19 @@ void brelse(struct buffer_head * buf)
  * bread() reads a specified block and returns the buffer that contains
  * it. It returns NULL if the block was unreadable.
  */
-struct buffer_head * bread(int dev,int block)
+struct buffer_head * bread(int dev,int block)//从dev，block获得buffer_head，一般用这个就可以
 {
 	struct buffer_head * bh;
 
-	if (!(bh=getblk(dev,block)))
+	if (!(bh=getblk(dev,block)))//拿一块空闲的buffer_head
 		panic("bread: getblk returned NULL\n");
 	if (bh->b_uptodate)
 		return bh;
-	ll_rw_block(READ,bh);
+	ll_rw_block(READ,bh);//将硬件的数据读取到buffer_head
 	wait_on_buffer(bh);
 	if (bh->b_uptodate)
 		return bh;
-	brelse(bh);
+	brelse(bh);//释放锁
 	return NULL;
 }
 
@@ -293,23 +293,23 @@ __asm__("cld\n\t" \
  * all at the same time, not waiting for one to be read, and then another
  * etc.
  */
-void bread_page(unsigned long address,int dev,int b[4])
+void bread_page(unsigned long address,int dev,int b[4])//一次性读4个块到指定的地址
 {
-	struct buffer_head * bh[4];
+	struct buffer_head * bh[4];//新建4个buffer_head
 	int i;
 
 	for (i=0 ; i<4 ; i++)
 		if (b[i]) {
 			if (bh[i] = getblk(dev,b[i]))
 				if (!bh[i]->b_uptodate)
-					ll_rw_block(READ,bh[i]);
+					ll_rw_block(READ,bh[i]);//从硬件读取四个块
 		} else
 			bh[i] = NULL;
 	for (i=0 ; i<4 ; i++,address += BLOCK_SIZE)
 		if (bh[i]) {
 			wait_on_buffer(bh[i]);
 			if (bh[i]->b_uptodate)
-				COPYBLK((unsigned long) bh[i]->b_data,address);
+				COPYBLK((unsigned long) bh[i]->b_data,address);//拷贝bh对应的b_data到address
 			brelse(bh[i]);
 		}
 }
@@ -319,12 +319,12 @@ void bread_page(unsigned long address,int dev,int b[4])
  * blocks for reading as well. End the argument list with a negative
  * number.
  */
-struct buffer_head * breada(int dev,int first, ...)
+struct buffer_head * breada(int dev,int first, ...)//可以和bread类似，但是可以预读一些块，用负数来标识列表结束
 {
 	va_list args;
 	struct buffer_head * bh, *tmp;
 
-	va_start(args,first);
+	va_start(args,first);//可变参数的第一个数
 	if (!(bh=getblk(dev,first)))
 		panic("bread: getblk returned NULL\n");
 	if (!bh->b_uptodate)
@@ -333,7 +333,7 @@ struct buffer_head * breada(int dev,int first, ...)
 		tmp=getblk(dev,first);
 		if (tmp) {
 			if (!tmp->b_uptodate)
-				ll_rw_block(READA,bh);
+				ll_rw_block(READA,bh);//注意这里有个bug，应该是ll_rw_block(READA,tmp)
 			tmp->b_count--;
 		}
 	}
@@ -345,7 +345,7 @@ struct buffer_head * breada(int dev,int first, ...)
 	return (NULL);
 }
 
-void buffer_init(long buffer_end)
+void buffer_init(long buffer_end)//缓冲区初始化代码，在main函数中被调用。
 {
 	struct buffer_head * h = start_buffer;
 	void * b;

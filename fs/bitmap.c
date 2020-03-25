@@ -5,6 +5,7 @@
  */
 
 /* bitmap.c contains the code that handles the inode and block bitmaps */
+/* bitmap.c 主要是为了操作inode和block的位图，主要是为了新建和删除*/
 #include <string.h>
 
 #include <linux/sched.h>
@@ -44,7 +45,7 @@ __asm__("cld\n" \
 	:"=c" (__res):"c" (0),"S" (addr):"ax","dx","si"); \
 __res;})
 
-void free_block(int dev, int block)
+void free_block(int dev, int block)//删除一个block
 {
 	struct super_block * sb;
 	struct buffer_head * bh;
@@ -53,7 +54,7 @@ void free_block(int dev, int block)
 		panic("trying to free block on nonexistent device");
 	if (block < sb->s_firstdatazone || block >= sb->s_nzones)
 		panic("trying to free block not in datazone");
-	bh = get_hash_table(dev,block);
+	bh = get_hash_table(dev,block);//当block在高速缓存的时候，释放对应的缓冲块
 	if (bh) {
 		if (bh->b_count != 1) {
 			printk("trying to free block (%04x:%d), count=%d\n",
@@ -72,7 +73,7 @@ void free_block(int dev, int block)
 	sb->s_zmap[block/8192]->b_dirt = 1;
 }
 
-int new_block(int dev)
+int new_block(int dev)//向dev申请一块block
 {
 	struct buffer_head * bh;
 	struct super_block * sb;
@@ -104,7 +105,7 @@ int new_block(int dev)
 	return j;
 }
 
-void free_inode(struct m_inode * inode)
+void free_inode(struct m_inode * inode)//向dev释放一个inode，删除文件
 {
 	struct super_block * sb;
 	struct buffer_head * bh;
@@ -127,13 +128,13 @@ void free_inode(struct m_inode * inode)
 		panic("trying to free inode 0 or nonexistant inode");
 	if (!(bh=sb->s_imap[inode->i_num>>13]))
 		panic("nonexistent imap in superblock");
-	if (clear_bit(inode->i_num&8191,bh->b_data))
+	if (clear_bit(inode->i_num&8191,bh->b_data))//清空bit
 		printk("free_inode: bit already cleared.\n\r");
 	bh->b_dirt = 1;
 	memset(inode,0,sizeof(*inode));
 }
 
-struct m_inode * new_inode(int dev)
+struct m_inode * new_inode(int dev)//向dev申请一个inode，新建文件
 {
 	struct m_inode * inode;
 	struct super_block * sb;

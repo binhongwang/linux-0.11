@@ -189,7 +189,7 @@ static struct buffer_head * add_entry(struct m_inode * dir,
 		if ((char *)de >= BLOCK_SIZE+bh->b_data) {
 			brelse(bh);
 			bh = NULL;
-			block = create_block(dir,i/DIR_ENTRIES_PER_BLOCK);
+			block = create_block(dir,i/DIR_ENTRIES_PER_BLOCK);//添加目录
 			if (!block)
 				return NULL;
 			if (!(bh = bread(dir->i_dev,block))) {
@@ -460,7 +460,7 @@ int sys_mknod(const char * filename, int mode, int dev)
 	return 0;
 }
 
-int sys_mkdir(const char * pathname, int mode)
+int sys_mkdir(const char * pathname, int mode)//系统调用创建目录
 {
 	const char * basename;
 	int namelen;

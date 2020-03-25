@@ -32,12 +32,12 @@ int sys_ioctl(unsigned int fd, unsigned int cmd, unsigned long arg)
 	struct file * filp;
 	int dev,mode;
 
-	if (fd >= NR_OPEN || !(filp = current->filp[fd]))
+	if (fd >= NR_OPEN || !(filp = current->filp[fd]))//获得当前的file
 		return -EBADF;
 	mode=filp->f_inode->i_mode;
-	if (!S_ISCHR(mode) && !S_ISBLK(mode))
+	if (!S_ISCHR(mode) && !S_ISBLK(mode))//非字符设备或者块设备，返回异常
 		return -EINVAL;
-	dev = filp->f_inode->i_zone[0];
+	dev = filp->f_inode->i_zone[0];//拿到设备号
 	if (MAJOR(dev) >= NRDEVS)
 		return -ENODEV;
 	if (!ioctl_table[MAJOR(dev)])

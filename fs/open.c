@@ -135,26 +135,26 @@ int sys_chown(const char * filename,int uid,int gid)
 	return 0;
 }
 
-int sys_open(const char * filename,int flag,int mode)
+int sys_open(const char * filename,int flag,int mode)//给定一个路径，创建一个fd，其实fd对应的file，file对应的是inode和偏移量
 {
 	struct m_inode * inode;
 	struct file * f;
 	int i,fd;
 
-	mode &= 0777 & ~current->umask;
+	mode &= 0777 & ~current->umask;//判断权限
 	for(fd=0 ; fd<NR_OPEN ; fd++)
-		if (!current->filp[fd])
+		if (!current->filp[fd])//找个一个空闲的fd。
 			break;
 	if (fd>=NR_OPEN)
 		return -EINVAL;
 	current->close_on_exec &= ~(1<<fd);
 	f=0+file_table;
-	for (i=0 ; i<NR_FILE ; i++,f++)
+	for (i=0 ; i<NR_FILE ; i++,f++)//找一个空闲的file数据结构
 		if (!f->f_count) break;
 	if (i>=NR_FILE)
 		return -EINVAL;
-	(current->filp[fd]=f)->f_count++;
-	if ((i=open_namei(filename,flag,mode,&inode))<0) {
+	(current->filp[fd]=f)->f_count++;//file数据结构已经被使用
+	if ((i=open_namei(filename,flag,mode,&inode))<0) {//返回对应的inode给你
 		current->filp[fd]=NULL;
 		f->f_count=0;
 		return i;
@@ -176,10 +176,10 @@ int sys_open(const char * filename,int flag,int mode)
 /* Likewise with block-devices: check for floppy_change */
 	if (S_ISBLK(inode->i_mode))
 		check_disk_change(inode->i_zone[0]);
-	f->f_mode = inode->i_mode;
+	f->f_mode = inode->i_mode;//将inode信息帮忙
 	f->f_flags = flag;
 	f->f_count = 1;
-	f->f_inode = inode;
+	f->f_inode = inode;//将fd和inode绑定，inode是唯一的，file有很多。
 	f->f_pos = 0;
 	return (fd);
 }
@@ -195,7 +195,7 @@ int sys_close(unsigned int fd)
 
 	if (fd >= NR_OPEN)
 		return -EINVAL;
-	current->close_on_exec &= ~(1<<fd);
+	current->close_on_exec &= ~(1<<fd);//其实就是标识这个文件是否会在fork之后被close掉，这些信息都在task中
 	if (!(filp = current->filp[fd]))
 		return -EINVAL;
 	current->filp[fd] = NULL;

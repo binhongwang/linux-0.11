@@ -22,7 +22,7 @@ extern int file_read(struct m_inode * inode, struct file * filp,
 extern int file_write(struct m_inode * inode, struct file * filp,
 		char * buf, int count);
 
-int sys_lseek(unsigned int fd,off_t offset, int origin)
+int sys_lseek(unsigned int fd,off_t offset, int origin)//显示的调整文件读写的偏移量
 {
 	struct file * file;
 	int tmp;
@@ -30,7 +30,7 @@ int sys_lseek(unsigned int fd,off_t offset, int origin)
 	if (fd >= NR_OPEN || !(file=current->filp[fd]) || !(file->f_inode)
 	   || !IS_SEEKABLE(MAJOR(file->f_inode->i_dev)))
 		return -EBADF;
-	if (file->f_inode->i_pipe)
+	if (file->f_inode->i_pipe)//如果是pipe直接返回
 		return -ESPIPE;
 	switch (origin) {
 		case 0:
@@ -52,7 +52,7 @@ int sys_lseek(unsigned int fd,off_t offset, int origin)
 	return file->f_pos;
 }
 
-int sys_read(unsigned int fd,char * buf,int count)
+int sys_read(unsigned int fd,char * buf,int count)//文件读的系统调用,fd->file->inode->数据块
 {
 	struct file * file;
 	struct m_inode * inode;
@@ -63,13 +63,13 @@ int sys_read(unsigned int fd,char * buf,int count)
 		return 0;
 	verify_area(buf,count);
 	inode = file->f_inode;
-	if (inode->i_pipe)
+	if (inode->i_pipe)//pipe
 		return (file->f_mode&1)?read_pipe(inode,buf,count):-EIO;
-	if (S_ISCHR(inode->i_mode))
+	if (S_ISCHR(inode->i_mode))//字符设备
 		return rw_char(READ,inode->i_zone[0],buf,count,&file->f_pos);
-	if (S_ISBLK(inode->i_mode))
+	if (S_ISBLK(inode->i_mode))//块设备
 		return block_read(inode->i_zone[0],&file->f_pos,buf,count);
-	if (S_ISDIR(inode->i_mode) || S_ISREG(inode->i_mode)) {
+	if (S_ISDIR(inode->i_mode) || S_ISREG(inode->i_mode)) {//常规文件或目录
 		if (count+file->f_pos > inode->i_size)
 			count = inode->i_size - file->f_pos;
 		if (count<=0)
@@ -80,7 +80,7 @@ int sys_read(unsigned int fd,char * buf,int count)
 	return -EINVAL;
 }
 
-int sys_write(unsigned int fd,char * buf,int count)
+int sys_write(unsigned int fd,char * buf,int count)//文件写的系统调用,fd->file->inode->数据块
 {
 	struct file * file;
 	struct m_inode * inode;
